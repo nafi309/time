@@ -1,0 +1,6 @@
+{
+  "name": "Digital Alarm Clock",
+  "description": "A beautiful and functional digital clock with alarm, dynamic backgrounds, and music playback. Set an alarm, and wake up to a random pleasant song while the app cycles through stunning background images.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
