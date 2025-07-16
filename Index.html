@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digital Alarm Clock</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* For smooth background crossfade */
+        #bg-overlay {
+            transition: opacity 2s ease-in-out;
+        }
+        /* Custom scrollbar for alarm list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/"
+  }
+}
+</script>
+</head>
+<body class="bg-gray-900">
+    <div id="root">
+        <!-- Background Images container -->
+        <div id="bg-container" class="absolute h-screen w-screen bg-cover bg-center"></div>
+        <div id="bg-overlay" class="absolute inset-0 bg-cover bg-center" style="opacity: 0;"></div>
+        <div class="absolute inset-0 bg-black/40"></div>
+
+        <main class="relative z-10 flex h-full flex-col items-center justify-center p-4 text-white font-sans">
+            <div class="w-full max-w-md rounded-2xl bg-black/30 p-6 shadow-2xl backdrop-blur-md transition-all duration-300">
+                
+                <!-- Time and Date Display -->
+                <div class="text-center">
+                    <h2 class="text-3xl opacity-80 mb-2 font-light">اتحاد</h2>
+                    <h1 id="time-display" class="text-5xl md:text-7xl font-bold tracking-wider" style="text-shadow: 0 0 15px rgba(0,0,0,0.5)"></h1>
+                    <p id="date-display" class="mt-2 text-lg opacity-80" style="text-shadow: 0 0 10px rgba(0,0,0,0.5)"></p>
+                </div>
+
+                <div class="my-6 h-px bg-white/20"></div>
+
+                <!-- Alarm Status -->
+                <div class="text-center">
+                    <div id="alarm-status-container" class="flex items-center justify-center gap-2 text-lg opacity-90 h-8">
+                        <!-- Status icon and text will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Ringing View -->
+                <div id="ringing-view" class="mt-6 flex flex-col items-center gap-4 hidden">
+                    <p id="ringing-alarm-time" class="text-xl"></p>
+                    <button id="stop-alarm-btn" class="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-3 text-lg font-semibold shadow-lg transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800">
+                        <!-- Stop icon and text will be injected here -->
+                    </button>
+                </div>
+
+                <!-- Default View -->
+                <div id="default-view" class="mt-6 w-full">
+                    <div class="flex items-center justify-center gap-2">
+                        <input id="new-alarm-time-input" type="time" class="rounded-lg border-2 border-white/20 bg-black/30 px-4 py-2 text-lg text-white focus:border-cyan-400 focus:outline-none focus:ring-0" aria-label="Set new alarm time">
+                        <button id="add-alarm-btn" class="rounded-lg bg-cyan-600 px-5 py-2.5 text-lg font-medium shadow-md transition hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-800">
+                            Add
+                        </button>
+                    </div>
+                    <div id="alarm-list-container" class="mt-4 max-h-36 space-y-2 overflow-y-auto px-1 custom-scrollbar">
+                        <!-- Alarm list will be injected here -->
+                    </div>
+                </div>
+                
+                <!-- Volume Control -->
+                <div id="volume-control-container" class="mt-6 flex items-center justify-center gap-4">
+                    <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.5" class="w-40 cursor-pointer appearance-none rounded-lg bg-white/20 h-2 accent-cyan-400" aria-label="Volume control">
+                </div>
+
+            </div>
+            <audio id="audio-player"></audio>
+        </main>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- CONSTANTS ---
+            const SONGS = [
+                { title: "Ente Khalbile", artist: "Shaan Rahman", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+                { title: "Perfect", artist: "Ed Sheeran", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+                { title: "Malare", artist: "Vijay Yesudas", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
+                { title: "Someone You Loved", artist: "Lewis Capaldi", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
+                { title: "Aararo", artist: "Sid Sriram", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
+                { title: "Kandu Ravithalil", artist: "Shahabas Aman", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3" },
+                { title: "Ethra Naal", artist: "Adheef Muhamed", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3" },
+            ];
+            const BACKGROUND_IMAGES = [
+                "https://images.unsplash.com/photo-1554147090-e1221a04a025?auto=format&fit=crop&q=80",
+                "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&q=80",
+                "https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&q=80",
+                "https://images.unsplash.com/photo-1604079628040-94301bb21b91?auto=format&fit=crop&q=80",
+                "https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?auto=format&fit=crop&q=80",
+                "https://images.unsplash.com/photo-1507608616759-54f48f0af0ee?auto=format&fit=crop&q=80",
+            ];
+            const ICONS = {
+                bell: (className = 'text-green-400') => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${className}"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>`,
+                bellRinging: (className = 'text-yellow-400 animate-bounce') => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${className}"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>`,
+                bellOff: (className = '') => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${className}"><path d="M8.7 8.7c.3-.9.7-1.7 1.3-2.5" /><path d="M17 17H3s3-2 3-9c0-.2.1-.4.1-.6" /><path d="M13.73 21a2 2 0 0 0-3.46 0" /><path d="M18.63 13A6 6 0 0 1 6 8c0-2 .9-3.8 2.4-5" /><line x1="1" y1="1" x2="23" y2="23" /></svg>`,
+                volume2: (className = 'opacity-80') => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${className}"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /></svg>`,
+                stopCircle: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><rect x="9" y="9" width="6" height="6"></rect></svg>`,
+                trash: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-red-400 transition-colors hover:text-red-500"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>`,
+            };
+
+            // --- DOM ELEMENTS ---
+            const timeDisplay = document.getElementById('time-display');
+            const dateDisplay = document.getElementById('date-display');
+            const bgContainer = document.getElementById('bg-container');
+            const bgOverlay = document.getElementById('bg-overlay');
+            const audioPlayer = document.getElementById('audio-player');
+            const alarmStatusContainer = document.getElementById('alarm-status-container');
+            const ringingView = document.getElementById('ringing-view');
+            const defaultView = document.getElementById('default-view');
+            const ringingAlarmTime = document.getElementById('ringing-alarm-time');
+            const stopAlarmBtn = document.getElementById('stop-alarm-btn');
+            const newAlarmTimeInput = document.getElementById('new-alarm-time-input');
+            const addAlarmBtn = document.getElementById('add-alarm-btn');
+            const alarmListContainer = document.getElementById('alarm-list-container');
+            const volumeSlider = document.getElementById('volume-slider');
+            const volumeControlContainer = document.getElementById('volume-control-container');
+
+            // --- STATE ---
+            let alarms = [];
+            let isAlarmRinging = false;
+            let ringingAlarmTimeValue = null;
+            let currentSong = null;
+            let bgIndex = 0;
+            
+            // --- HELPER FUNCTIONS ---
+            const formatTime = (date) => date.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const formatDate = (date) => date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const formatAlarmTime = (time24) => {
+                if (!time24) return '';
+                const [hour, minute] = time24.split(':').map(Number);
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                return `${hour12.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${ampm}`;
+            };
+            const saveAlarms = () => localStorage.setItem('alarms', JSON.stringify(alarms));
+            const loadAlarms = () => {
+                const savedAlarms = localStorage.getItem('alarms');
+                try {
+                    alarms = savedAlarms ? JSON.parse(savedAlarms) : [];
+                } catch {
+                    alarms = [];
+                }
+            };
+
+            // --- RENDER FUNCTIONS ---
+            const renderAlarms = () => {
+                alarmListContainer.innerHTML = '';
+                if (alarms.length === 0) {
+                    alarmListContainer.innerHTML = `<p class="pt-4 text-center text-white/60">You have no alarms set.</p>`;
+                } else {
+                    alarms.sort((a, b) => a.time.localeCompare(b.time));
+                    alarms.forEach(alarm => {
+                        const timeClass = `text-xl font-mono ${!alarm.enabled ? 'line-through opacity-50' : ''}`;
+                        const alarmDivHtml = `
+                            <div class="flex items-center justify-between rounded-lg bg-white/10 p-3" data-id="${alarm.id}">
+                                <span class="${timeClass}">${formatAlarmTime(alarm.time)}</span>
+                                <div class="flex items-center gap-3">
+                                    <label class="relative inline-flex cursor-pointer items-center">
+                                        <input type="checkbox" ${alarm.enabled ? 'checked' : ''} data-action="toggle" class="peer sr-only" />
+                                        <div class="peer h-6 w-11 rounded-full bg-gray-500 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-green-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-400"></div>
+                                    </label>
+                                    <button data-action="delete" aria-label="Delete alarm for ${formatAlarmTime(alarm.time)}">${ICONS.trash()}</button>
+                                </div>
+                            </div>`;
+                        alarmListContainer.insertAdjacentHTML('beforeend', alarmDivHtml);
+                    });
+                }
+                updateAlarmStatus();
+            };
+
+            const updateAlarmStatus = () => {
+                let icon;
+                let text;
+                const enabledAlarmsCount = alarms.filter(a => a.enabled).length;
+
+                if (isAlarmRinging) {
+                    icon = ICONS.bellRinging();
+                    text = `Ringing! Playing: ${currentSong?.title || 'a song'}`;
+                } else if (enabledAlarmsCount > 0) {
+                    icon = ICONS.bell();
+                    text = `${enabledAlarmsCount} active alarm${enabledAlarmsCount > 1 ? 's' : ''} set`;
+                } else {
+                    icon = ICONS.bellOff();
+                    text = 'No active alarms';
+                }
+                alarmStatusContainer.innerHTML = `${icon}<p>${text}</p>`;
+            };
+            
+            const updateMainView = () => {
+                if (isAlarmRinging) {
+                    ringingView.classList.remove('hidden');
+                    defaultView.classList.add('hidden');
+                    ringingAlarmTime.textContent = `Alarm for ${formatAlarmTime(ringingAlarmTimeValue || '')}`;
+                    stopAlarmBtn.innerHTML = `${ICONS.stopCircle()} Stop Alarm`;
+                } else {
+                    ringingView.classList.add('hidden');
+                    defaultView.classList.remove('hidden');
+                }
+            };
+            
+            const updateClock = () => {
+                const now = new Date();
+                timeDisplay.textContent = formatTime(now);
+                dateDisplay.textContent = formatDate(now);
+                return now;
+            };
+            
+            // --- CORE LOGIC ---
+            const playAlarm = () => {
+                const randomIndex = Math.floor(Math.random() * SONGS.length);
+                currentSong = SONGS[randomIndex];
+                audioPlayer.src = currentSong.url;
+                audioPlayer.loop = true;
+                audioPlayer.play().catch(error => console.error("Audio play failed:", error));
+            };
+
+            const checkAlarms = (now) => {
+                if (isAlarmRinging) return;
+                const currentTimeFormatted = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                const triggeredAlarm = alarms.find(alarm => alarm.enabled && alarm.time === currentTimeFormatted);
+                
+                if (triggeredAlarm) {
+                    isAlarmRinging = true;
+                    ringingAlarmTimeValue = triggeredAlarm.time;
+                    playAlarm();
+                    updateMainView();
+                    updateAlarmStatus();
+                }
+            };
+
+            const stopAlarm = () => {
+                audioPlayer.pause();
+                audioPlayer.currentTime = 0;
+                isAlarmRinging = false;
+                if (ringingAlarmTimeValue) {
+                    alarms = alarms.map(alarm => alarm.time === ringingAlarmTimeValue ? { ...alarm, enabled: false } : alarm);
+                }
+                ringingAlarmTimeValue = null;
+                currentSong = null;
+                saveAlarms();
+                renderAlarms();
+                updateMainView();
+            };
+
+            const updateBackground = () => {
+                const nextBgIndex = (bgIndex + 1) % BACKGROUND_IMAGES.length;
+                bgOverlay.style.backgroundImage = `url(${BACKGROUND_IMAGES[nextBgIndex]})`;
+                bgOverlay.style.opacity = 1;
+
+                setTimeout(() => {
+                    bgIndex = nextBgIndex;
+                    bgContainer.style.backgroundImage = `url(${BACKGROUND_IMAGES[bgIndex]})`;
+                    bgOverlay.style.opacity = 0;
+                }, 2000); // This must match the CSS transition duration
+            };
+
+            // --- EVENT HANDLERS ---
+            addAlarmBtn.addEventListener('click', () => {
+                const newTime = newAlarmTimeInput.value;
+                if (newTime && !alarms.some(alarm => alarm.time === newTime)) {
+                    alarms.push({ id: Date.now(), time: newTime, enabled: true });
+                    saveAlarms();
+                    renderAlarms();
+                    newAlarmTimeInput.value = '';
+                } else if (!newTime) {
+                    alert("Please select a time for the alarm.");
+                } else {
+                    alert("An alarm for this time already exists.");
+                }
+            });
+
+            alarmListContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('[data-action]');
+                if (!button) return;
+                
+                const action = button.dataset.action;
+                const alarmDiv = button.closest('[data-id]');
+                const alarmId = Number(alarmDiv.dataset.id);
+
+                if (action === 'delete') {
+                    alarms = alarms.filter(alarm => alarm.id !== alarmId);
+                } else if (action === 'toggle') {
+                    const checkbox = button.closest('label').querySelector('input[type="checkbox"]');
+                    alarms = alarms.map(alarm => alarm.id === alarmId ? { ...alarm, enabled: checkbox.checked } : alarm);
+                }
+                saveAlarms();
+                renderAlarms();
+            });
+
+            stopAlarmBtn.addEventListener('click', stopAlarm);
+            volumeSlider.addEventListener('input', (e) => audioPlayer.volume = parseFloat(e.target.value));
+
+            // --- INITIALIZATION ---
+            function init() {
+                loadAlarms();
+                volumeControlContainer.insertAdjacentHTML('afterbegin', ICONS.volume2());
+                audioPlayer.volume = volumeSlider.value;
+                bgContainer.style.backgroundImage = `url(${BACKGROUND_IMAGES[bgIndex]})`;
+                updateClock();
+                renderAlarms();
+                updateMainView();
+
+                setInterval(() => { checkAlarms(updateClock()); }, 1000);
+                setInterval(updateBackground, 30000);
+            }
+            
+            init();
+        });
+    </script>
+</body>
+</html>
